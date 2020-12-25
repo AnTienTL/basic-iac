@@ -63,16 +63,14 @@ module "vpc" {
 }
 
 module "security_group_for_ec2" {
-  source  = "terraform-aws-modules/security-group/aws"
-  version = "~> 3.0"
+  source  = "./modules/sg"
 
-  name        = "example"
-  description = "Security group for example usage with EC2 instance"
-  vpc_id      = module.vpc.vpc_id
-
-  ingress_cidr_blocks = ["0.0.0.0/0"]
-  ingress_rules       = ["http-80-tcp","https-443-tcp", "all-icmp", "ssh-tcp"]
-  egress_rules        = ["all-all"]
+  name                = var.sg_name
+  description         = var.sg_description
+  vpc_id              = module.vpc.vpc_id
+  ingress_cidr_blocks = var.sg_ingress_cidr_blocks
+  ingress_rules       = var.sg_ingress_rules
+  egress_rules        = var.sg_egress_rules
 }
 
 module "acm" {
