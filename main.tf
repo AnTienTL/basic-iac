@@ -77,8 +77,9 @@ module "security_group_for_ec2" {
 
 module "acm" {
   source  = "./modules/acm"
-  domain_name = "*.antientf.tk"
-  validation_method = "DNS"
+
+  domain_name         = var.acm_domain_name
+  validation_method   = var.acm_validation_method
   tags = {
     "name" = "demo tf"
   }
@@ -99,7 +100,8 @@ module "acm" {
 
 module "key-pair" {
   source     = "./modules/key-pair/"
-  key_name   = "mykeypair"
+
+  key_name   = var.key_name
   public_key = file(var.PATH_TO_PUBLIC_KEY)
 }
 
@@ -169,23 +171,23 @@ module "key-pair" {
 module "asg" {
   source = "./modules/asg/"
 
-  name = "example-with-elb"
+  name = var.asg_name
 
-  lc_name = "example-lc"
+  lc_name = var.asg_lc_name
 
   image_id        = data.aws_ami.amazon_linux.id
-  instance_type   = "t2.micro"
+  instance_type   = var.instance_type
   key_name        = module.key-pair.this_key_pair_key_name
   user_data       = local.user_data
   security_groups = [module.security_group_for_ec2.this_security_group_id]
 
   # Auto scaling group
   vpc_zone_identifier = module.vpc.public_subnets
-  health_check_type   = "EC2"
-  min_size            = 2
-  max_size            = 4
-  desired_capacity    = 2
-  force_delete        = true
+  health_check_type   = var.asg_health_check_type
+  min_size            = var.asg_min_size
+  max_size            = var.asg_max_size
+  desired_capacity    = var.asg_desired_capacity
+  force_delete        = var.asg_force_delete
   target_group_arns   = module.alb.target_group_arns
 
   tags = [
@@ -205,24 +207,10 @@ module "asg" {
 module "alb" {
   source = "./modules/alb/"
 
-  name            = "demo"
-  vpc_id          = module.vpc.vpc_id
-  security_groups = [module.security_group_for_ec2.this_security_group_id]
-  subnets         = module.vpc.public_subnets
-
-  http_tcp_listeners = [
-    {
-      port               = 80
-      protocol           = "HTTP"
-      action_type = "redirect"  # Forward action is default, either when defined or undefined
-      target_group_index = 0
-      redirect = {
-        port        = "443"
-        protocol    = "HTTPS"
-        status_code = "HTTP_301"
-      }
-    }
-  ]
+  name                  = var.alb_name
+  vpc_id                = module.vpc.vpc_id
+  security_groups       = [module.security_group_for_ec2.this_security_group_id]
+  subnets               = module.vpc.public_subnets
 
   https_listeners = [
     {
@@ -232,55 +220,8 @@ module "alb" {
       target_group_index = 0
     }
   ]
-
-
-  target_groups = [
-    {
-      name_prefix          = "demo"
-      backend_port         = 80
-      backend_protocol     = "HTTP"
-      target_type          = "instance"
-      deregistration_delay = 10
-      health_check = {
-        enabled             = true
-        interval            = 6
-        path                = "/"
-        port                = "traffic-port"
-        healthy_threshold   = 3
-        unhealthy_threshold = 4
-        timeout             = 5
-        protocol            = "HTTP"
-        matcher             = "200-399"
-      }
-      tags = {
-        InstanceTargetGroupTag = "InstanceTargetGroupTag"
-      }
-    }
-  ]
-
-
-
-  https_listener_rules = [
-    {
-      https_listener_index = 0
-      priority             = 5000
-      actions = [{
-        type        = "redirect"
-        status_code = "HTTP_302"
-        host        = "www.antientf.tk"
-        path        = "/*"
-        query       = ""
-        protocol    = "HTTPS"
-      }]
-      conditions = [{
-        http_headers = [{
-          http_header_name = "x-Gimme-Fixed-Response"
-          values           = ["yes", "please", "right now"]
-        }]
-      }]
-    },
-  ]
-
+  target_groups         = var.alb_target_groups
+  https_listener_rules  = var.alb_https_listener_rules
 
   tags = {
     Project = "demo"

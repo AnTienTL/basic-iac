@@ -176,7 +176,6 @@ variable "tags_environment" {
 ###########  ALB                                       ###########  
 ##################################################################
 
-# length(c)
 
 variable "target_groups" {
   description = "demmo tg"
@@ -225,4 +224,168 @@ variable "target_groups" {
       }
     }
   ]
+}
+
+variable "alb_name" {
+  description = "The resource name and Name tag of the load balancer."
+  type        = string
+  default     = "demo"
+}
+
+variable "alb_http_tcp_listeners" {
+  description = "A list of maps describing the HTTP listeners or TCP ports for this ALB. Required key/values: port, protocol. Optional key/values: target_group_index (defaults to http_tcp_listeners[count.index])"
+  type        = any
+  default     = [
+    {
+      port               = 80
+      protocol           = "HTTP"
+      action_type = "redirect"  # Forward action is default, either when defined or undefined
+      target_group_index = 0
+      redirect = {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  ]
+}
+
+variable "alb_target_groups" {
+  description = "A list of maps containing key/value pairs that define the target groups to be created. Order of these maps is important and the index of these are to be referenced in listener definitions. Required key/values: name, backend_protocol, backend_port"
+  type        = any
+  default     = [
+    {
+      name_prefix          = "demo"
+      backend_port         = 80
+      backend_protocol     = "HTTP"
+      target_type          = "instance"
+      deregistration_delay = 10
+      health_check = {
+        enabled             = true
+        interval            = 6
+        path                = "/"
+        port                = "traffic-port"
+        healthy_threshold   = 3
+        unhealthy_threshold = 4
+        timeout             = 5
+        protocol            = "HTTP"
+        matcher             = "200-399"
+      }
+      tags = {
+        InstanceTargetGroupTag = "InstanceTargetGroupTag"
+      }
+    }
+  ]
+}
+
+variable "alb_https_listener_rules" {
+  description = "A list of maps describing the Listener Rules for this ALB. Required key/values: actions, conditions. Optional key/values: priority, https_listener_index (default to https_listeners[count.index])"
+  type        = any
+  default     = [
+    {
+      https_listener_index = 0
+      priority             = 5000
+      actions = [{
+        type        = "redirect"
+        status_code = "HTTP_302"
+        host        = "www.antientf.tk"
+        path        = "/*"
+        query       = ""
+        protocol    = "HTTPS"
+      }]
+      conditions = [{
+        http_headers = [{
+          http_header_name = "x-Gimme-Fixed-Response"
+          values           = ["yes", "please", "right now"]
+        }]
+      }]
+    },
+  ]
+
+
+}
+
+
+
+##################################################################
+###########  ASG                                       ###########  
+##################################################################
+
+
+variable "asg_name" {
+  description = "Creates a unique name beginning with the specified prefix"
+  type        = string
+  default     = "example-with-elb"
+}
+
+variable "asg_lc_name" {
+  description = "Creates a unique name for launch configuration beginning with the specified prefix"
+  type        = string
+  default     = ""
+}
+
+variable "asg_instance_type" {
+  description = "The size of instance to launch"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "asg_health_check_type" {
+  description = "Controls how health checking is done. Values are - EC2 and ELB"
+  type        = string
+  default     = "EC2"
+}
+
+variable "asg_min_size" {
+  description = "The minimum size of the auto scale group"
+  type        = string
+  default     = 2
+}
+
+variable "asg_max_size" {
+  description = "The maximum size of the auto scale group"
+  type        = string
+  default     = 4
+}
+
+variable "asg_desired_capacity" {
+  description = "The number of Amazon EC2 instances that should be running in the group"
+  type        = string
+  default     = 2
+}
+
+variable "asg_force_delete" {
+  description = "Allows deleting the autoscaling group without waiting for all instances in the pool to terminate. You can force an autoscaling group to delete even if it's in the process of scaling a resource. Normally, Terraform drains all the instances before deleting the group. This bypasses that behavior and potentially leaves resources dangling"
+  type        = bool
+  default     = true
+}
+
+
+
+##################################################################
+###########  KEY                                       ###########  
+##################################################################
+
+
+variable "key_name" {
+  description = "The name for the key pair."
+  type        = string
+  default     = "mykeypair"
+}
+
+
+##################################################################
+###########  ACM                                       ###########  
+##################################################################
+
+variable "acm_domain_name" {
+  description = "A domain name for which the certificate should be issued"
+  type        = string
+  default     = "*.antientf.tk"
+}
+
+variable "acm_validation_method" {
+  description = "Which method to use for validation. DNS or EMAIL are valid, NONE can be used for certificates that were imported into ACM and then into Terraform."
+  type        = string
+  default     = "DNS"
 }
