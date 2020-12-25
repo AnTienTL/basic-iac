@@ -175,7 +175,13 @@ variable "tags_environment" {
 ##################################################################
 ###########  ALB                                       ###########  
 ##################################################################
-
+variable "tags_alb" {
+  description = "tag of lb"
+  type        = map
+  default     = {
+    Project = "demo"
+  }
+}
 
 variable "target_groups" {
   description = "demmo tg"
@@ -311,6 +317,22 @@ variable "alb_https_listener_rules" {
 ###########  ASG                                       ###########  
 ##################################################################
 
+variable "tags_asg" {
+  description = "tag of asg"
+  type        = list
+  default     = [
+    {
+      key                 = "Environment"
+      value               = "dev"
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Project"
+      value               = "megasecret"
+      propagate_at_launch = true
+    },
+  ]
+}
 
 variable "asg_name" {
   description = "Creates a unique name beginning with the specified prefix"
@@ -378,6 +400,14 @@ variable "key_name" {
 ###########  ACM                                       ###########  
 ##################################################################
 
+variable "tags_acm" {
+  description = "tag of acm"
+  type        = map
+  default     = {
+    "name" = "demo tf"
+  }
+}
+
 variable "acm_domain_name" {
   description = "A domain name for which the certificate should be issued"
   type        = string
@@ -424,5 +454,65 @@ variable "sg_egress_rules" {
   default     = ["all-all"]
 }
 
+
+##################################################################
+###########  VPC                                       ###########  
+##################################################################
+
+variable "vpc_name" {
+  description = "Name to be used on all the resources as identifier"
+  type        = string
+  default     = "demo"
+}
+
+variable "vpc_cidr" {
+  description = "The CIDR block for the VPC. Default value is a valid CIDR, but not acceptable by AWS and should be overridden"
+  type        = string
+  default     = "20.10.0.0/16"
+}
+
+variable "vpc_azs" {
+  description = "A list of availability zones names or ids in the region"
+  type        = list(string)
+  default     = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+}
+
+variable "vpc_private_subnets" {
+  description = "A list of private subnets inside the VPC"
+  type        = list(string)
+  default     = ["20.10.1.0/24", "20.10.2.0/24", "20.10.3.0/24"]
+}
+
+variable "vpc_public_subnets" {
+  description = "A list of public subnets inside the VPC"
+  type        = list(string)
+  default     = ["20.10.11.0/24", "20.10.12.0/24", "20.10.13.0/24"]
+}
+
+
+variable "vpc_database_subnets" {
+  description = "A list of database subnets"
+  type        = list(string)
+  default     = ["20.10.21.0/24", "20.10.22.0/24", "20.10.23.0/24"]
+}
+
+
+variable "vpc_create_database_subnet_group" {
+  description = "Controls if database subnet group should be created (n.b. database_subnets must also be set)"
+  type        = bool
+  default     = false
+}
+
+variable "vpc_enable_nat_gateway" {
+  description = "Should be true if you want to provision NAT Gateways for each of your private networks"
+  type        = bool
+  default     = true
+}
+
+variable "vpc_single_nat_gateway" {
+  description = "Should be true if you want to provision a single shared NAT Gateway across all of your private networks"
+  type        = bool
+  default     = true
+}
 
 

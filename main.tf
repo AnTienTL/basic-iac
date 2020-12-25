@@ -1,20 +1,3 @@
-provider "aws" {
-  region = "eu-west-1"
-}
-
-locals {
-  user_data = <<EOF
-  #!/bin/bash
-  sudo yum update -y 
-  sudo yum upgrade -y
-  sudo yum install telnet mysql -y
-  sudo yum -y install httpd
-  echo "Hello World" > /var/www/html/index.html
-  service httpd start
-  chkconfig httpd on
-  EOF
-}
-
 data "aws_ami" "amazon_linux" {
   most_recent = true
 
@@ -37,31 +20,28 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
+## Take cert issued from amazon
 data "aws_acm_certificate" "demo_cert" {
-  domain   = "*.antientf.tk"
+  domain   = var.acm_domain_name
   statuses = ["ISSUED"]
 }
 
 module "vpc" {
   source = "./modules/vpc/"
-  name   = "demo"
 
-  cidr = "20.10.0.0/16"
-
-  azs              = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
-  private_subnets  = ["20.10.1.0/24", "20.10.2.0/24", "20.10.3.0/24"]
-  public_subnets   = ["20.10.11.0/24", "20.10.12.0/24", "20.10.13.0/24"]
-  database_subnets = ["20.10.21.0/24", "20.10.22.0/24", "20.10.23.0/24"]
-
-  create_database_subnet_group = false
-
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  enable_nat_gateway = true
-  single_nat_gateway = true
+  name                          = var.vpc_name
+  cidr                          = var.vpc_cidr
+  azs                           = var.vpc_azs
+  private_subnets               = var.vpc_private_subnets
+  public_subnets                = var.vpc_public_subnets
+  database_subnets              = var.vpc_database_subnets
+  create_database_subnet_group  = var.vpc_create_database_subnet_group
+  enable_nat_gateway            = var.vpc_enable_nat_gateway
+  single_nat_gateway            = var.vpc_single_nat_gateway
 }
 
+
+# generate sg(http, https, ssh) from module secirty group of aws
 module "security_group_for_ec2" {
   source  = "./modules/sg"
 
@@ -73,14 +53,13 @@ module "security_group_for_ec2" {
   egress_rules        = var.sg_egress_rules
 }
 
+# create certificate for my domain
 module "acm" {
   source  = "./modules/acm"
 
   domain_name         = var.acm_domain_name
   validation_method   = var.acm_validation_method
-  tags = {
-    "name" = "demo tf"
-  }
+  tags = var.tags_acm
 }
 
 # module "security_group_for_rds" {
@@ -96,6 +75,7 @@ module "acm" {
 #   egress_rules        = ["all-all"]
 # }
 
+# create key pair "mykey" upload file public to aws
 module "key-pair" {
   source     = "./modules/key-pair/"
 
@@ -166,19 +146,17 @@ module "key-pair" {
 #   enabled_cloudwatch_logs_exports = var.rds_enabled_cloudwatch_logs_exports
 # }
 
+# create asg with min 2 max 4
 module "asg" {
   source = "./modules/asg/"
 
-  name = var.asg_name
-
-  lc_name = var.asg_lc_name
-
-  image_id        = data.aws_ami.amazon_linux.id
-  instance_type   = var.instance_type
-  key_name        = module.key-pair.this_key_pair_key_name
-  user_data       = local.user_data
-  security_groups = [module.security_group_for_ec2.this_security_group_id]
-
+  name                = var.asg_name
+  lc_name             = var.asg_lc_name
+  image_id            = data.aws_ami.amazon_linux.id
+  instance_type       = var.instance_type
+  key_name            = module.key-pair.this_key_pair_key_name
+  user_data           = local.user_data
+  security_groups     = [module.security_group_for_ec2.this_security_group_id]
   # Auto scaling group
   vpc_zone_identifier = module.vpc.public_subnets
   health_check_type   = var.asg_health_check_type
@@ -188,18 +166,7 @@ module "asg" {
   force_delete        = var.asg_force_delete
   target_group_arns   = module.alb.target_group_arns
 
-  tags = [
-    {
-      key                 = "Environment"
-      value               = "dev"
-      propagate_at_launch = true
-    },
-    {
-      key                 = "Project"
-      value               = "megasecret"
-      propagate_at_launch = true
-    },
-  ]
+  tags = var.tags_asg
 }
 
 module "alb" {
@@ -221,11 +188,6 @@ module "alb" {
   target_groups         = var.alb_target_groups
   https_listener_rules  = var.alb_https_listener_rules
 
-  tags = {
-    Project = "demo"
-  }
+  tags = var.tags_alb
 
-  lb_tags = {
-    MyLoadBalancer = "demolb"
-  }
 }
