@@ -1,4 +1,4 @@
-data "aws_ami" "amazon_linux" {
+idata "aws_ami" "amazon_linux" {
   most_recent = true
 
   owners = ["amazon"]
@@ -26,6 +26,8 @@ data "aws_acm_certificate" "demo_cert" {
   statuses = ["ISSUED"]
 }
 
+#create vpc 3 public_subnets and 3 private subnet 
+# create 1 nat gatway
 module "vpc" {
   source = "./modules/vpc/"
 
