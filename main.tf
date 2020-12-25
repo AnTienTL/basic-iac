@@ -2,40 +2,45 @@ provider "aws" {
   region = "eu-west-1"
 }
 
-# locals {
-#   user_data = <<EOF
-#   #!/bin/bash
-#   sudo yum update -y 
-#   sudo yum upgrade -y
-#   sudo yum install telnet mysql -y
-#   sudo yum -y install httpd
-#   echo "Hello World" > /var/www/html/index.html
-#   service httpd start
-#   chkconfig httpd on
-#   EOF
-# }
+locals {
+  user_data = <<EOF
+  #!/bin/bash
+  sudo yum update -y 
+  sudo yum upgrade -y
+  sudo yum install telnet mysql -y
+  sudo yum -y install httpd
+  echo "Hello World" > /var/www/html/index.html
+  service httpd start
+  chkconfig httpd on
+  EOF
+}
 
-# data "aws_ami" "amazon_linux" {
-#   most_recent = true
+data "aws_ami" "amazon_linux" {
+  most_recent = true
 
-#   owners = ["amazon"]
+  owners = ["amazon"]
 
-#   filter {
-#     name = "name"
+  filter {
+    name = "name"
 
-#     values = [
-#       "amzn-ami-hvm-*-x86_64-gp2",
-#     ]
-#   }
+    values = [
+      "amzn-ami-hvm-*-x86_64-gp2",
+    ]
+  }
 
-#   filter {
-#     name = "owner-alias"
+  filter {
+    name = "owner-alias"
 
-#     values = [
-#       "amazon",
-#     ]
-#   }
-# }
+    values = [
+      "amazon",
+    ]
+  }
+}
+
+data "aws_acm_certificate" "demo_cert" {
+  domain   = "*.antientf.tk"
+  statuses = ["ISSUED"]
+}
 
 module "vpc" {
   source = "./modules/vpc/"
@@ -57,37 +62,46 @@ module "vpc" {
   single_nat_gateway = true
 }
 
-# module "security_group_for_ec2" {
-#   source  = "terraform-aws-modules/security-group/aws"
-#   version = "~> 3.0"
-
-#   name        = "example"
-#   description = "Security group for example usage with EC2 instance"
-#   vpc_id      = module.vpc.vpc_id
-
-#   ingress_cidr_blocks = ["0.0.0.0/0"]
-#   ingress_rules       = ["http-80-tcp", "all-icmp", "ssh-tcp"]
-#   egress_rules        = ["all-all"]
-# }
-
-module "security_group_for_rds" {
+module "security_group_for_ec2" {
   source  = "terraform-aws-modules/security-group/aws"
   version = "~> 3.0"
 
-  name        = "sgrds"
-  description = "Security group for example usage with rds instance"
+  name        = "example"
+  description = "Security group for example usage with EC2 instance"
   vpc_id      = module.vpc.vpc_id
 
-  ingress_cidr_blocks = [module.vpc.vpc_cidr_block]
-  ingress_rules       = ["mysql-tcp"]
+  ingress_cidr_blocks = ["0.0.0.0/0"]
+  ingress_rules       = ["http-80-tcp","https-443-tcp", "all-icmp", "ssh-tcp"]
   egress_rules        = ["all-all"]
 }
 
-# module "key-pair" {
-#   source     = "./modules/key-pair/"
-#   key_name   = "mykeypair"
-#   public_key = file(var.PATH_TO_PUBLIC_KEY)
+module "acm" {
+  source  = "./modules/acm"
+  domain_name = "*.antientf.tk"
+  validation_method = "DNS"
+  tags = {
+    "name" = "demo tf"
+  }
+}
+
+# module "security_group_for_rds" {
+#   source  = "terraform-aws-modules/security-group/aws"
+#   version = "~> 3.0"
+
+#   name        = "sgrds"
+#   description = "Security group for example usage with rds instance"
+#   vpc_id      = module.vpc.vpc_id
+
+#   ingress_cidr_blocks = [module.vpc.vpc_cidr_block]
+#   ingress_rules       = ["mysql-tcp"]
+#   egress_rules        = ["all-all"]
 # }
+
+module "key-pair" {
+  source     = "./modules/key-pair/"
+  key_name   = "mykeypair"
+  public_key = file(var.PATH_TO_PUBLIC_KEY)
+}
 
 # module "ec2" {
 #   source = "./modules/ec2/"
@@ -152,91 +166,127 @@ module "security_group_for_rds" {
 #   enabled_cloudwatch_logs_exports = var.rds_enabled_cloudwatch_logs_exports
 # }
 
-# module "asg" {
-#   source = "./modules/asg/"
+module "asg" {
+  source = "./modules/asg/"
 
-#   name = "example-with-elb"
+  name = "example-with-elb"
 
-#   lc_name = "example-lc"
+  lc_name = "example-lc"
 
-#   image_id        = data.aws_ami.amazon_linux.id
-#   instance_type   = "t2.micro"
-#   key_name        = module.key-pair.this_key_pair_key_name
-#   user_data       = local.user_data
-#   security_groups = [module.security_group_for_ec2.this_security_group_id]
+  image_id        = data.aws_ami.amazon_linux.id
+  instance_type   = "t2.micro"
+  key_name        = module.key-pair.this_key_pair_key_name
+  user_data       = local.user_data
+  security_groups = [module.security_group_for_ec2.this_security_group_id]
 
-#   # Auto scaling group
-#   vpc_zone_identifier = module.vpc.public_subnets
-#   health_check_type   = "EC2"
-#   min_size            = 2
-#   max_size            = 4
-#   desired_capacity    = 2
-#   force_delete        = true
-#   target_group_arns   = module.alb.target_group_arns
+  # Auto scaling group
+  vpc_zone_identifier = module.vpc.public_subnets
+  health_check_type   = "EC2"
+  min_size            = 2
+  max_size            = 4
+  desired_capacity    = 2
+  force_delete        = true
+  target_group_arns   = module.alb.target_group_arns
 
-#   tags = [
-#     {
-#       key                 = "Environment"
-#       value               = "dev"
-#       propagate_at_launch = true
-#     },
-#     {
-#       key                 = "Project"
-#       value               = "megasecret"
-#       propagate_at_launch = true
-#     },
-#   ]
-# }
+  tags = [
+    {
+      key                 = "Environment"
+      value               = "dev"
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Project"
+      value               = "megasecret"
+      propagate_at_launch = true
+    },
+  ]
+}
 
-# module "alb" {
-#   source = "./modules/alb/"
+module "alb" {
+  source = "./modules/alb/"
 
-#   name            = "demo"
-#   vpc_id          = module.vpc.vpc_id
-#   security_groups = [module.security_group_for_ec2.this_security_group_id]
-#   subnets         = module.vpc.public_subnets
+  name            = "demo"
+  vpc_id          = module.vpc.vpc_id
+  security_groups = [module.security_group_for_ec2.this_security_group_id]
+  subnets         = module.vpc.public_subnets
 
-#   http_tcp_listeners = [
-#     # Forward action is default, either when defined or undefined
-#     {
-#       port               = 80
-#       protocol           = "HTTP"
-#       target_group_index = 0
-#       # action_type        = "forward"
-#     }
-#   ]
+  http_tcp_listeners = [
+    {
+      port               = 80
+      protocol           = "HTTP"
+      action_type = "redirect"  # Forward action is default, either when defined or undefined
+      target_group_index = 0
+      redirect = {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  ]
 
-
-#   target_groups = [
-#     {
-#       name_prefix          = "h1"
-#       backend_protocol     = "HTTP"
-#       backend_port         = 80
-#       target_type          = "instance"
-#       deregistration_delay = 10
-#       health_check = {
-#         enabled             = true
-#         interval            = 30
-#         path                = "/"
-#         port                = "traffic-port"
-#         healthy_threshold   = 3
-#         unhealthy_threshold = 3
-#         timeout             = 6
-#         protocol            = "HTTP"
-#         matcher             = "200-399"
-#       }
-#       tags = {
-#         InstanceTargetGroupTag = "InstanceTargetGroupTag"
-#       }
-#     }
-#   ]
+  https_listeners = [
+    {
+      port               = 443
+      protocol           = "HTTPS"
+      certificate_arn    = data.aws_acm_certificate.demo_cert.arn
+      target_group_index = 0
+    }
+  ]
 
 
-#   tags = {
-#     Project = "demo"
-#   }
+  target_groups = [
+    {
+      name_prefix          = "demo"
+      backend_port         = 80
+      backend_protocol     = "HTTP"
+      target_type          = "instance"
+      deregistration_delay = 10
+      health_check = {
+        enabled             = true
+        interval            = 6
+        path                = "/"
+        port                = "traffic-port"
+        healthy_threshold   = 3
+        unhealthy_threshold = 4
+        timeout             = 5
+        protocol            = "HTTP"
+        matcher             = "200-399"
+      }
+      tags = {
+        InstanceTargetGroupTag = "InstanceTargetGroupTag"
+      }
+    }
+  ]
 
-#   lb_tags = {
-#     MyLoadBalancer = "demolb"
-#   }
-# }
+
+
+  https_listener_rules = [
+    {
+      https_listener_index = 0
+      priority             = 5000
+      actions = [{
+        type        = "redirect"
+        status_code = "HTTP_302"
+        host        = "www.antientf.tk"
+        path        = "/*"
+        query       = ""
+        protocol    = "HTTPS"
+      }]
+      conditions = [{
+        http_headers = [{
+          http_header_name = "x-Gimme-Fixed-Response"
+          values           = ["yes", "please", "right now"]
+        }]
+      }]
+    },
+  ]
+
+
+  tags = {
+    Project = "demo"
+  }
+
+  lb_tags = {
+    MyLoadBalancer = "demolb"
+  }
+}
