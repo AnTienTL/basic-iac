@@ -188,8 +188,8 @@ module "alb" {
     }
   ]
   target_groups         = var.alb_target_groups
-  https_listener_rules  = var.alb_https_listener_rules
-
+  # https_listener_rules  = var.alb_https_listener_rules
+  http_tcp_listeners    = var.alb_http_tcp_listeners
   tags = var.tags_alb
 
 }

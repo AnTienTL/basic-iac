@@ -1,9 +1,9 @@
 variable "PATH_TO_PRIVATE_KEY" {
-  default = "mykey"
+  default = "~/.ssh/id_rsa"
 }
 
 variable "PATH_TO_PUBLIC_KEY" {
-  default = "mykey.pub"
+  default = "~/.ssh/id_rsa.pub"
 }
 
 ##################################################################
@@ -284,32 +284,30 @@ variable "alb_target_groups" {
   ]
 }
 
-variable "alb_https_listener_rules" {
-  description = "A list of maps describing the Listener Rules for this ALB. Required key/values: actions, conditions. Optional key/values: priority, https_listener_index (default to https_listeners[count.index])"
-  type        = any
-  default     = [
-    {
-      https_listener_index = 0
-      priority             = 5000
-      actions = [{
-        type        = "redirect"
-        status_code = "HTTP_302"
-        host        = "www.antientf.tk"
-        path        = "/*"
-        query       = ""
-        protocol    = "HTTPS"
-      }]
-      conditions = [{
-        http_headers = [{
-          http_header_name = "x-Gimme-Fixed-Response"
-          values           = ["yes", "please", "right now"]
-        }]
-      }]
-    },
-  ]
-
-
-}
+# variable "alb_https_listener_rules" {
+#   description = "A list of maps describing the Listener Rules for this ALB. Required key/values: actions, conditions. Optional key/values: priority, https_listener_index (default to https_listeners[count.index])"
+#   type        = any
+#   default     = [
+#     {
+#       https_listener_index = 0
+#       priority             = 5000
+#       actions = [{
+#         type        = "redirect"
+#         status_code = "HTTP_302"
+#         host        = "www.antientf.tk"
+#         path        = "/*"
+#         query       = ""
+#         protocol    = "HTTPS"
+#       }]
+#       conditions = [{
+#         http_headers = [{
+#           http_header_name = "x-Gimme-Fixed-Response"
+#           values           = ["yes", "please", "right now"]
+#         }]
+#       }]
+#     },
+#   ]
+# }
 
 
 
